@@ -1,3 +1,4 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -8,9 +9,15 @@ export async function POST(req: Request) {
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
+
+    console.log(file, formData);
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
+    console.log(fileBuffer);
+
     const uploadUrl = await upload(file.name, fileBuffer);
+
+    console.log(uploadUrl);
 
     return NextResponse.json({ url: uploadUrl }, { status: 200 });
   } catch (error) {
@@ -23,22 +30,18 @@ export async function POST(req: Request) {
 
 async function upload(fileName: string, fileBuffer: Buffer) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const BUCKET = "uploads";
 
-  const res = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "video/mp4",
-      },
-      body: fileBuffer,
-    }
-  );
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .upload(fileName, fileBuffer, {
+      contentType: "video/*",
+      upsert: true,
+    });
 
-  if (!res.ok) throw new Error("Failed to upload to Supabase");
+  if (error) console.error(error, "error uploading file");
+
+  console.log(data);
 
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
 }
