@@ -29,19 +29,26 @@ export async function POST(req: Request) {
 }
 
 async function upload(fileName: string, fileBuffer: Buffer) {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const BUCKET = "uploads";
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .upload(fileName, fileBuffer, {
+    .upload(`public/${fileName}`, fileBuffer, {
       contentType: "video/*",
-      upsert: true,
+      upsert: true, //will delete anon vids after 5 mins so this shouldnt matter much here.
     });
 
-  if (error) console.error(error, "error uploading file");
+  if (error) {
+    console.error("Error uploading file:", error);
+    throw error;
+  }
 
-  console.log(data);
+  if (data) {
+    // Get the public URL using Supabase's method
+    const { data: publicUrlData } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(`public/${fileName}`);
 
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+    return publicUrlData.publicUrl;
+  }
 }
